@@ -1,1 +1,1 @@
-from xrd import XrdPattern
+from pycrystal import *

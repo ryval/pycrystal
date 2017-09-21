@@ -3,7 +3,7 @@ import numpy as np
 
 from config import AFF
 
-class XrdPattern(object):
+class SingleCrystal(object):
 
     def __init__(self, element, lat_const, lat_vect, bas_vect): 
         self.element = element
@@ -83,10 +83,10 @@ class XrdPattern(object):
         return np.sum([self.atomic_form_factor(np.linalg.norm(q_vect, axis=-1)) * \
                        np.exp(-1j * np.dot(q_vect, bv)) for bv in self.bas_vect], axis=0)
 
-    def get_xrd_pattern(self, hkl_min, hkl_max):
+    def get_xrd_pattern(self, hkl_min, hkl_max, decimals=1):
         q_vect = self.get_reciprocal_points(hkl_min, hkl_max, return_vectors=True)
         sf_sqd = np.absolute(self.structure_factor(q_vect))
-        q_norm, idx, wts = self.get_reciprocal_points(hkl_min, hkl_max)
+        q_norm, idx, wts = self.get_reciprocal_points(hkl_min, hkl_max, decimals=decimals)
         return (q_norm, sf_sqd[idx] * wts)
 
     def plot_xrd_pattern(self, hkl_min, hkl_max):
@@ -113,3 +113,26 @@ class XrdPattern(object):
                                                for hkl in hkls])[1:], decimals=decimals),
                              return_index=True,
                              return_counts=True)
+
+class MixedCrystal(SingleCrystal): # Needs Work - what if ele1 and ele2 have diff lat_vects?
+    def __init__(self, x, 
+                 element1, element2, 
+                 lat_const1, lat_const2,
+                 lat_vect, # currently supporting only common lattice type
+                 bas_vect1, bas_vect2,
+                 ratio=1.0):
+        
+        self.crystal1 = SingleCrystal(element1, lat_const1, lat_vect, bas_vect1)
+        self.crystal2 = SingleCrystal(element2, lat_const2, lat_vect, bas_vect2)
+        self.lat_const = (1 - x) * lat_const1 + x * lat_const2 # Vergard's Law
+        self.lat_vect = lat_vect
+        self.ratio = ratio  # ratio is amount of ele1 compared to ele2 
+        self.x = x # mixing parameter, 0.5 => fully mixed
+        
+    def structure_factor(self, q_vect):
+        crystal1_msf = [np.sqrt(self.ratio) * (1 - self.x) * \
+            self.crystal1.atomic_form_factor(np.linalg.norm(q_vect, axis=-1)) * \
+            np.exp(-1j * np.dot(q_vect, bv)) for bv in self.crystal1.bas_vect]
+        crystal2_msf = [self.x * self.crystal2.atomic_form_factor(np.linalg.norm(q_vect, axis=-1)) * \
+            np.exp(-1j * np.dot(q_vect, bv)) for bv in self.crystal2.bas_vect]
+        return np.sum(crystal1_msf + crystal2_msf, axis=0)
