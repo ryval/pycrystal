@@ -39,12 +39,13 @@ class Element(object):
             self._b4 = float(record[u'b4'])
             self._c = float(record[u'c'])
 
-    def atomic_form_factor(self, q):
+    def atomic_form_factor(self, q, weight=1.0):
         """Calculates the atomic form factor evaluated at q.
 
         Args:  
             q:  Either a list or single momentum transfer value
-        
+            weight:  (float, optional) A multiplicative factor to apply to the form factor
+
         Returns:  
             The AFF evaluated at all given q values.
         """
@@ -52,8 +53,8 @@ class Element(object):
                      (self._a2, self._b2),
                      (self._a3, self._b3),
                      (self._a4, self._b4)]
-        return np.sum([a * np.exp(-b * (q / 4.0 * np.pi)**2.0)
-                       for a, b in constants], axis=0) + self._c
+        return weight * (np.sum([a * np.exp(-b * (q / 4.0 * np.pi)**2.0)
+                            for a, b in constants], axis=0) + self._c)
 
 
 class SingleCrystal(object):
@@ -138,50 +139,58 @@ class SingleCrystal(object):
         b3 = 2 * np.pi * (np.cross(a1, a2) / vol)
         return np.array([b1, b2, b3], dtype='f8')
 
-    def structure_factor(self, q_vect):
+    def structure_factor(self, q_vect, weights=None):
         """Calculature the structure factor.
 
         S(q) = basis_sum(atomic_form_factor_i * exp(-j q.r_i))
 
         Args:  
             q_vect:  A 1 or 2D array of momentum transfer vectors
+            weights:  An array of multiplicative factors to apply to each atom's AFF
 
         Returns:   
             The structure factor evaluated at each given vector.
         """
         partial_factors = []
         for i, element in enumerate(self.elements):
-            aff = element.atomic_form_factor(np.linalg.norm(q_vect, axis=-1))
+            if not weights:
+                aff = element.atomic_form_factor(np.linalg.norm(q_vect, axis=-1))
+            else:
+                assert len(weights) == len(self.elements), u'Must include a weight for each element.'
+                aff = element.atomic_form_factor(np.linalg.norm(q_vect, axis=-1), weight=weights[i])
+
             partial_factors.append(aff * np.exp(-1j * np.dot(q_vect, self.basis_vectors[i])))
 
         return np.sum(partial_factors, axis=0)
 
-    def get_xrd_pattern(self, hkl_min=-2, hkl_max=2, decimals=1):
+    def get_xrd_pattern(self, hkl_min=-2, hkl_max=2, decimals=1, weights=None):
         """Calculates the scattering intensity seen in x-ray diffraction
 
         Args: 
             hkl_min, hkl_max: (int, optional) min and max values for the Miller indices
             decimals: (int, optional) The number of decimals used to set the bin size
+            weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
 
         Returns:  
             A tuple (q, I(q))
         """
         q_vect = self.get_reciprocal_points(hkl_min, hkl_max, return_vectors=True)
-        sf_sqd = np.absolute(self.structure_factor(q_vect))
+        sf_sqd = np.absolute(self.structure_factor(q_vect, weights=weights))
         q_norm, idx, wts = self.get_reciprocal_points(hkl_min, hkl_max, decimals=decimals)
         return (q_norm, sf_sqd[idx] * wts)
 
-    def plot_xrd_pattern(self, hkl_min=-2, hkl_max=2, decimals=1):
+    def plot_xrd_pattern(self, hkl_min=-2, hkl_max=2, decimals=1, weights=None):
         """Plots the scattering intensity seen in x-ray diffraction
 
         Args: 
             hkl_min, hkl_max: (int, optional) min and max values for the Miller indices
             decimals: (int, optional) The number of decimals used to set the bin size
+            weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
 
         Returns:  
             A figure.
         """
-        X, Y = self.get_xrd_pattern(hkl_min=hkl_min, hkl_max=hkl_max)
+        X, Y = self.get_xrd_pattern(hkl_min=hkl_min, hkl_max=hkl_max, weights=weights)
 
         fig = plt.figure()
         plt.scatter(X, Y)
