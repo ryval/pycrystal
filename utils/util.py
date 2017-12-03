@@ -29,4 +29,5 @@ def angle_convert(q_norm, energy):
     Returns:  
         An array of angle values.
     """
+    q_norm = np.array([q for q in q_norm if np.abs((HBAR * SPEED_OF_LIGHT * q) / (2 * energy)) <= 1])
     return 2 * (180.0 / np.pi) * np.arcsin((HBAR * SPEED_OF_LIGHT * q_norm) / (2 * energy))
