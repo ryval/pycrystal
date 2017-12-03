@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from utils import norm
 from config import AFF
 
 class Element(object):
@@ -163,41 +164,68 @@ class SingleCrystal(object):
 
         return np.sum(partial_factors, axis=0)
 
-    def get_xrd_pattern(self, hkl_min=-2, hkl_max=2, decimals=1, weights=None):
+    def get_xrd_pattern(self, hkl_min=-2, hkl_max=2, decimals=1, **kwargs):
         """Calculates the scattering intensity seen in x-ray diffraction
 
         Args: 
             hkl_min, hkl_max: (int, optional) min and max values for the Miller indices
             decimals: (int, optional) The number of decimals used to set the bin size
-            weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
+            **kwargs:
+                weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
+                gaussian_peaks:  (boolean, optional) If True, applies gaussians centered at each peak
+                gaussian_width:  (float, optional) The std of the gaussians
+                gaussian_step:  (float, optional) The q-axis step size
 
         Returns:  
             A tuple (q, I(q))
         """
         q_vect = self.get_reciprocal_points(hkl_min, hkl_max, return_vectors=True)
-        sf_sqd = np.absolute(self.structure_factor(q_vect, weights=weights))
+        sf_sqd = np.absolute(self.structure_factor(q_vect, weights=kwargs.get(u'weights')))
         q_norm, idx, wts = self.get_reciprocal_points(hkl_min, hkl_max, decimals=decimals)
-        return (q_norm, sf_sqd[idx] * wts)
+        I_q = sf_sqd[idx] * wts
 
-    def plot_xrd_pattern(self, hkl_min=-2, hkl_max=2, decimals=1, weights=None):
+        if kwargs.get(u'gaussian_peaks'):
+            step_q = kwargs.get(u'gaussian_step', 0.01)
+            std = kwargs.get(u'gaussian_width', 0.1)
+            min_q = kwargs.get(u'gaussian_q_min', q_norm.min() - 3.0 * std)
+            max_q = kwargs.get(u'gaussian_q_max', q_norm.max() + 3.0 * std)
+            
+            q_range = np.arange(min_q, max_q, step_q)
+            gaussians = [I_q[i] * norm(q_range, mu, std=std) for i, mu in enumerate(q_norm)]
+
+            q_norm = q_range
+            I_q = np.sum(gaussians, axis=0)
+
+        return (q_norm, I_q)
+
+    def plot_xrd_pattern(self, hkl_min=-2, hkl_max=2, decimals=1, **kwargs):
         """Plots the scattering intensity seen in x-ray diffraction
 
         Args: 
             hkl_min, hkl_max: (int, optional) min and max values for the Miller indices
             decimals: (int, optional) The number of decimals used to set the bin size
-            weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
+            **kwargs:
+                weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
+                gaussian_peaks:  (boolean, optional) If True, applies gaussians centered at each peak
+                gaussian_width:  (float, optional) The std of the gaussians
+                gaussian_step:  (float, optional) The q-axis step size
 
         Returns:  
             A figure.
         """
-        X, Y = self.get_xrd_pattern(hkl_min=hkl_min, hkl_max=hkl_max, weights=weights)
+        X, Y = self.get_xrd_pattern(hkl_min=hkl_min, hkl_max=hkl_max, **kwargs)
 
         fig = plt.figure()
-        plt.scatter(X, Y)
         plt.ylim(min(Y) - 0.1 * (max(Y) - min(Y)), max(Y) + 0.1 * (max(Y) - min(Y)))
-        y_min, y_max = plt.ylim()
-        for i, x in enumerate(X):
-            plt.axvline(x=x, ymax=(Y[i] - y_min) / (y_max - y_min), linestyle='--')
+
+        if not kwargs.get(u'gaussian_peaks'):
+            plt.scatter(X, Y)
+            y_min, y_max = plt.ylim()
+            for i, x in enumerate(X):
+                plt.axvline(x=x, ymax=(Y[i] - y_min) / (y_max - y_min), linestyle='--')
+        else:
+            plt.plot(X, Y)
+
         return fig
 
     def get_miller_indices(self, hkl_min, hkl_max):
