@@ -172,10 +172,13 @@ class SingleCrystal(object):
             decimals: (int, optional) The number of decimals used to set the bin size
             **kwargs:
                 weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
-                energy: (optional, float) An energy in keV, converts the q-axis to angle
+                debye_waller:  (float, optional) The scattering center displacement used in the Debye-Waller factor
+                energy: (float, optional) An energy in keV, converts the q-axis to angle
                 gaussian_peaks:  (boolean, optional) If True, applies gaussians centered at each peak
                 gaussian_width:  (float, optional) The std of the gaussians
                 gaussian_step:  (float, optional) The q-axis step size
+                gaussian_q_min:  (float, optional) The first q-axis value to use in sampling
+                gaussian_q_max:  (float, optional) the last q-axis value to use in sampling
 
         Returns:  
             A tuple (q, I(q))
@@ -184,6 +187,14 @@ class SingleCrystal(object):
         sf_sqd = np.absolute(self.structure_factor(q_vect, weights=kwargs.get(u'weights')))
         q_norm, idx, wts = self.get_reciprocal_points(hkl_min, hkl_max, decimals=decimals)
         I_q = sf_sqd[idx] * wts
+
+        debye_waller = kwargs.get(u'debye_waller')
+        if debye_waller:
+            I_q = np.array([I_q[i] * np.exp(((-q**2) * (debye_waller**2)) / 3.0) for i, q in enumerate(q_norm)])
+
+        energy = kwargs.get(u'energy')
+        if energy: 
+            q_norm = util.angle_convert(q_norm, energy)
 
         if kwargs.get(u'gaussian_peaks'):
             step_q = kwargs.get(u'gaussian_step', 0.01)
@@ -196,10 +207,6 @@ class SingleCrystal(object):
 
             q_norm = q_range
             I_q = np.sum(gaussians, axis=0)
-        
-        energy = kwargs.get(u'energy')
-        if energy: 
-            q_norm = util.angle_convert(q_norm, energy)
 
         return (q_norm, I_q)
 
@@ -211,10 +218,13 @@ class SingleCrystal(object):
             decimals: (int, optional) The number of decimals used to set the bin size
             **kwargs:
                 weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
-                energy: (optional, float) An energy in keV, converts the q-axis to angle
+                debye_waller:  (float, optional) The scattering center displacement used in the Debye-Waller factor
+                energy: (float, optional) An energy in keV, converts the q-axis to angle
                 gaussian_peaks:  (boolean, optional) If True, applies gaussians centered at each peak
                 gaussian_width:  (float, optional) The std of the gaussians
                 gaussian_step:  (float, optional) The q-axis step size
+                gaussian_q_min:  (float, optional) The first q-axis value to use in sampling
+                gaussian_q_max:  (float, optional) the last q-axis value to use in sampling
 
         Returns:  
             A figure.
