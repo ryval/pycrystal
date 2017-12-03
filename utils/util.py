@@ -1,6 +1,10 @@
 import numpy as np
 
 
+HBAR = 6.58211928*(10**(-19)) # keV * seconds
+SPEED_OF_LIGHT = 2.99792*(10**18) # Angstroms / second
+
+
 def norm(x, mu, std=1.0):
     """Calculates an unnormalized gaussian distribution over the input array.
     
@@ -12,3 +16,17 @@ def norm(x, mu, std=1.0):
         An array of norm values over x
     """
     return np.exp(-(x - mu)**2 / (2 * std**2))
+
+def angle_convert(q_norm, energy):
+    """Convert momentum transfer values to angle. 
+
+    Note:  This returns 2-theta.
+
+    Args:  
+        q_norm:  (array) An array of MT values
+        energy:  (float) The photon energy in keV
+    
+    Returns:  
+        An array of angle values.
+    """
+    return 2 * (180.0 / np.pi) * np.arcsin((HBAR * SPEED_OF_LIGHT * q_norm) / (2 * energy))

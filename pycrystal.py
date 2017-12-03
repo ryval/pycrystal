@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from utils import norm
+from utils import util
 from config import AFF
 
 class Element(object):
@@ -172,6 +172,7 @@ class SingleCrystal(object):
             decimals: (int, optional) The number of decimals used to set the bin size
             **kwargs:
                 weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
+                energy: (optional, float) An energy in keV, converts the q-axis to angle
                 gaussian_peaks:  (boolean, optional) If True, applies gaussians centered at each peak
                 gaussian_width:  (float, optional) The std of the gaussians
                 gaussian_step:  (float, optional) The q-axis step size
@@ -191,10 +192,14 @@ class SingleCrystal(object):
             max_q = kwargs.get(u'gaussian_q_max', q_norm.max() + 3.0 * std)
             
             q_range = np.arange(min_q, max_q, step_q)
-            gaussians = [I_q[i] * norm(q_range, mu, std=std) for i, mu in enumerate(q_norm)]
+            gaussians = [I_q[i] * util.norm(q_range, mu, std=std) for i, mu in enumerate(q_norm)]
 
             q_norm = q_range
             I_q = np.sum(gaussians, axis=0)
+        
+        energy = kwargs.get(u'energy')
+        if energy: 
+            q_norm = util.angle_convert(q_norm, energy)
 
         return (q_norm, I_q)
 
@@ -206,6 +211,7 @@ class SingleCrystal(object):
             decimals: (int, optional) The number of decimals used to set the bin size
             **kwargs:
                 weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
+                energy: (optional, float) An energy in keV, converts the q-axis to angle
                 gaussian_peaks:  (boolean, optional) If True, applies gaussians centered at each peak
                 gaussian_width:  (float, optional) The std of the gaussians
                 gaussian_step:  (float, optional) The q-axis step size
