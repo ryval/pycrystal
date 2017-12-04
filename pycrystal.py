@@ -174,6 +174,7 @@ class SingleCrystal(object):
                 weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
                 debye_waller:  (float, optional) The scattering center displacement used in the Debye-Waller factor
                 energy: (float, optional) An energy in keV, converts the q-axis to angle
+                lorentz: (boolean, optional) Specifies whether or not to apply a Lorentz factor, default True
                 gaussian_peaks:  (boolean, optional) If True, applies gaussians centered at each peak
                 gaussian_width:  (float, optional) The std of the gaussians
                 gaussian_step:  (float, optional) The q-axis step size
@@ -195,6 +196,9 @@ class SingleCrystal(object):
         energy = kwargs.get(u'energy')
         if energy: 
             q_norm = util.angle_convert(q_norm, energy)
+            if kwargs.get(u'lorentz', True):
+                deg_to_rad = np.pi / 180.0
+                I_q = np.array([I_q[i] / (np.cos(q * deg_to_rad) * np.sin(q * deg_to_rad)**2) for i, q in enumerate(q_norm)])
 
         if kwargs.get(u'gaussian_peaks'):
             step_q = kwargs.get(u'gaussian_step', 0.01)
@@ -220,6 +224,7 @@ class SingleCrystal(object):
                 weights:  (optional) An array of multiplicative factors to apply to each atom's AFF
                 debye_waller:  (float, optional) The scattering center displacement used in the Debye-Waller factor
                 energy: (float, optional) An energy in keV, converts the q-axis to angle
+                lorentz: (boolean, optional) Specifies whether or not to apply a Lorentz factor, default True
                 gaussian_peaks:  (boolean, optional) If True, applies gaussians centered at each peak
                 gaussian_width:  (float, optional) The std of the gaussians
                 gaussian_step:  (float, optional) The q-axis step size
